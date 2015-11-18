@@ -5,7 +5,6 @@ Zone prep complete!
 ***************************************************
 * To begin install navigate to:                   *
 *                                                 *
-* Then in your browser navigate to:               *
 *   http://$ZONEIP:5000                       *
 *                                                 *
 ***************************************************

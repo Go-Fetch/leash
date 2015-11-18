@@ -68,7 +68,7 @@ def pyfi_config(fifo_node, user, password):
 		fout.write('[GENERAL]\n')
 		fout.write('active = fifo_default\n\n')
 		fout.write('[fifo_default]\n')
-		fout.write('apiversion = 0.1.0\n')
+		fout.write('apiversion = 2\n')
 		fout.write('host = ' + fifo_node + '\n')
 		fout.write('user = ' + user + '\n')
 		fout.write('pass = ' + password + '\n')

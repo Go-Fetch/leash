@@ -1,5 +1,6 @@
 from math import ceil
-base64_img_uuid = 'd34c301e-10c3-11e4-9b79-5f67ca448df0'
+#base64_img_uuid = 'd34c301e-10c3-11e4-9b79-5f67ca448df0'
+base64_img_uuid = 'b67492c2-055c-11e5-85d8-8b039ac981ec'
 
 initial_vms = ['1.fifo', '1.manager.leofs', '2.manager.leofs', '1.gateway.leofs', '1.storage.leofs']
 

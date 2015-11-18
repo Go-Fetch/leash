@@ -3,13 +3,9 @@ from flask import Flask, redirect, request, jsonify
 
 import sys
 import os
-#import re
-#import getpass
 import string
-#import copy
 import random
 import time
-#import imp
 import base64
 import paramiko
 from multiprocessing import Process
@@ -179,6 +175,7 @@ def layout_vms():
 
 @APP.route('/api/install', methods=['POST'])
 def install_fifo():
+
     authenticator = request.form.get("password")
     if authenticator is not None:
         auth_type = "auth_type_password"
@@ -280,16 +277,9 @@ def install_fifo():
                                    {'sniffle_cookie': fifo_cookie})
     stick_actions.apply_properties(FETCH_DIR, 'fifo-snarl', {'snarl_cookie': fifo_cookie})
     stick_actions.apply_properties(FETCH_DIR, 'fifo-howl', {'howl_cookie': fifo_cookie})
-    stick_actions.apply_properties(FETCH_DIR, 'fifo-wiggle', {'wiggle_cookie': fifo_cookie})
     stick_actions.apply_properties(FETCH_DIR, 'fifo-chunter', {'chunter_cookie': fifo_cookie})
 
     print 'Installing fifo on vm'
-
-    if not stick_actions.apply_role(FETCH_DIR, "fifo-wiggle",
-                                    str(assignableIpRange[0]),
-                                    TEMP_DIR + '/vm.key',
-                                    'transport=paramiko') == True:
-        return "error - could not apply wiggle role"
 
     if not stick_actions.apply_role(FETCH_DIR, "fifo-jingles",
                                     str(assignableIpRange[0]),
@@ -322,8 +312,8 @@ def install_fifo():
     print 'Pausing for Fifo services to connect...'
     time.sleep(20)
 
-    print 'Creating admin user in Fifo...'
-    stick_actions.create_fifo_user(str(assignableIpRange[0]),
+    print 'Initializing admin user in Fifo...'
+    stick_actions.fifo_snarl_init(str(assignableIpRange[0]),
                                    "auth_type_ssh", TEMP_DIR + '/vm.key',
                                    "admin", "admin")
 
@@ -359,9 +349,13 @@ def install_fifo():
     if not admin_link_network_result:
         return "error - could not add ip range to network"
 
+    # Create packages
+    print 'Creating default packages...'
+    smallpkg = stick_actions.fifo_create_package("1proc-1Gmem-20Gdisk", "1073741824", "21474836480", "100")
+    medpkg = stick_actions.fifo_create_package("1proc-4Gmem-20Gdisk", "4294967296", "21474836480", "100")
+    lrgpkg = stick_actions.fifo_create_package("1proc-8Gmem-40Gdisk", "8589934592", "42949672960", "100")
 
 
-    # TODO: create default packages  - fifo
     #
     # TODO: create fifo cluster  - fifo
     # add to fifo ring  - fabric
@@ -554,7 +548,7 @@ def install_fifo():
         ) == True:
         return "error - could not apply Leofs gateway role to gateway 0"
 
-        
+
     print 'Configuring Fifo to use LeoFS...'
     if not (
             stick_actions.init_fifo_leofs(
@@ -606,7 +600,14 @@ def install_fifo():
         stick_actions.run_playbook(FETCH_DIR + '/hypervisors.yml',
                                    FETCH_DIR + '/inventory/hypervisors')
 
-    return jsonify({'result': 'ok'})
+    stick_actions.copy_fetch()
+
+    with open("/var/log/leash/leash.log", "a") as myfile:
+        myfile.write("******* Install Successful *******")
+
+    return
+
+
 
 
 

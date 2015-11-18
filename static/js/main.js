@@ -27,6 +27,31 @@ $('#wizard').on('actionclicked.fu.wizard', function (event, data) {
 			l = window.location
 			window.webSocket = new WebSocket("ws://" + l.hostname + ":9010");
 			window.webSocket.onmessage = function(e) {
+				if(e.data == "******* Install Successful *******"){
+					window.webSocket.close()
+					window.webSocket = null;
+					fifo_ip = $('#inputAdminNetAssignableStart').val()
+					newContent =
+						'<div> \
+								<br /><br />Installation is complete! To access your new Fifo install \
+								navigate to <a href="https://' + fifo_ip + '" target="_blank">https://' + fifo_ip + '</a> \
+								and login with admin/admin \
+								<br /><br /> \
+								<img style="height:100px; display:block; margin:auto;" src="img/ansible.png"> \
+								<br /> \
+								Project-Fifo was installed using Fetch. Fetch is a complation of Anisble playbooks and roles. \
+								You can download all the playbooks and config files used in the install process \
+								<a href="fetch.tar.gz" target="_blank">here</a>. \
+								<br /><br /> \
+								<img style="height:80px; display:block; margin:auto;" src="img/fifo.png"> \
+								<br /> \
+								Need help? Find Project-Fifo on IRC #project-fifo or on Twitter @project_fifo. \
+								<br /> \
+								Project FiFo provides commercial support services for companies looking to deploy FiFo managed clouds in production. \
+								<br /><br /> \
+							</div>';
+					$('#installationProgress').html(newContent);
+				}
 				newtext = ansispan(e.data.replace(/(?:\r\n|\r|\n)/g, '<br />'));
         $("#leash-log-viewer").append(newtext);
 				var objDiv = document.getElementById("leash-log-viewer");
@@ -133,9 +158,10 @@ function run_install(){
 			$.ajax({
 					url: "/api/install",
 					method: "POST",
-					data: postData
+					data: postData,
+					timeout: 3600000
 				})
-				.done(function(data) {
+/*				.done(function(data) {
 					newContent = ""
 					if (data.result == "ok"){
 						fifo_ip = $('#inputAdminNetAssignableStart').val()
@@ -156,10 +182,8 @@ function run_install(){
 								There was an error installing fifo on your system. \
 							</div>';
 					$('#installationProgress').html(newContent);
-				})
-				.always(function(){
-					window.webSocket = null;
-				});
+				}) */
+				;
 	})(hypervisors, hypervisorsLength);
 }
 

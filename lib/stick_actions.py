@@ -90,7 +90,7 @@ def _check_platform_image():
 		hide('warnings', 'running', 'stdout', 'stderr'),
 		warn_only=True
 	):
-		result = run('TESTED_VERSIONS=20131003T221245Z\|20140124T065835Z\|20140221T042147Z\|20140404T041131Z\|20140404T041131Z\|20140404T001635Z\|20140501T225642Z\|20141225T170427Z\|20150108T111855Z; if (uname -a | egrep $TESTED_VERSIONS > /dev/null) ; then echo "1"; exit; fi; echo "0"')
+		result = run('TESTED_VERSIONS=20150108T111855Z\|20150903T073920Z; if (uname -a | egrep $TESTED_VERSIONS > /dev/null) ; then echo "1"; exit; fi; echo "0"')
 		match = re.search(r'^[0-1]$', result)
 		if match:
 		 	if int(match.group()) == 1:
@@ -367,8 +367,7 @@ def run_playbook_with_pass(playbook_name, inventory_file, password):
 #
 #==============================================================================
 
-
-def create_fifo_user(fifo_host, auth_type, authenticator, user_name, password, rights="...", realm="default"):
+def fifo_snarl_init(fifo_host, auth_type, authenticator, user_name, password):
 	if auth_type == "auth_type_password":
 		env.password = authenticator
 	elif auth_type == "auth_type_ssh":
@@ -376,13 +375,24 @@ def create_fifo_user(fifo_host, auth_type, authenticator, user_name, password, r
 	else:
 		return {"result": "bad"}
 
-	new_user_result = execute(_fifo_new_user, realm, user_name, hosts=fifo_host)
-	grant_user_result = execute(_fifo_grant, realm, user_name, rights, hosts=fifo_host)
-	if grant_user_result == None:
-		return None
-	if  execute(_fifo_set_password, realm, user_name, password, hosts=fifo_host):
-		return new_user_result
-	return None
+	realm = "default"
+	org = "default"
+	role = "users"
+
+	return execute(_fifo_snarl_init, realm, org, role, user_name, password, hosts=fifo_host)
+
+def _fifo_snarl_init(realm, org, role, user_name, password):
+	with settings(
+		hide('warnings', 'running', 'stdout', 'stderr'),
+		warn_only=True
+	):
+		result = run('snarl-admin init ' + realm + ' ' + org + ' ' + role + ' ' + user_name + ' ' + password)
+		match = re.search('Added \'Everything\' scope and set it default', result)
+		if match:
+		 	return True
+		else:
+			return None
+
 
 def create_fifo_network(name):
 	return _fifo_create_network(name, True)
@@ -439,7 +449,7 @@ def _fifo_leofs_init(s3_host):
 		result = run('/opt/local/sbin/sniffle-admin init-leofs ' + s3_host)
 		match = re.search(r'^Created user fifo', result)
 		if match:
-		 	return True
+		 	return result
 		else:
 			return None
 
@@ -516,47 +526,6 @@ def _fifo_claim_ip(range_uuid):
 		return True
 
 
-
-    # TODO: create package  - fifo
-    # TODO: create fifo cluster  - fifo
-
-def _fifo_new_user(realm, user_name):
-	with settings(
-		hide('warnings', 'running', 'stdout', 'stderr'),
-		warn_only=True
-	):
-		create_result = run('fifoadm users add ' + realm + ' ' + user_name)
-		create_result_userid = re.findall(r'([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})', create_result)
-		if len(create_result_userid) < 1:
-			return False
-		else:
-			return create_result_userid[0]
-
-
-def _fifo_grant(realm, user_name, rights):
-	with settings(
-		hide('warnings', 'running', 'stdout', 'stderr'),
-		warn_only=True
-	):
-		result = run('fifoadm users grant ' + realm + ' ' + user_name + ' ' + rights)
-		match = re.search(r'^Granted', result)
-		if match:
-		 	return True
-		else:
-			return None
-
-def _fifo_set_password(realm, user_name, password):
-	with settings(
-		hide('warnings', 'running', 'stdout', 'stderr'),
-		warn_only=True
-	):
-		result = run('fifoadm users passwd ' + realm + ' ' + user_name + ' ' + password)
-		match = re.search(r'^Password successfully changed', result)
-		if match:
-		 	return True
-		else:
-			return None
-
 def _fifo_create_network(name, ignore_ssl = False):
 		run_opts = ""
 		if ignore_ssl:
@@ -602,6 +571,64 @@ def _fifo_add_range2network(networkID, rangeID, ignore_ssl = False):
 		 	return True
 		else:
 			return None
+
+
+
+# TODO: create fifo cluster  - fifo
+# TODO: check ring status
+# TODO: add to ring
+# TODO: poll until ring is ok
+def fifo_create_package(name, memory, quota, cpu):
+	return execute(_fifo_create_package, name, memory, quota, cpu, True)
+
+def _fifo_create_package(name, memory, quota, cpu, ignore_ssl = False):
+	with settings(
+		hide('warnings', 'running', 'stdout', 'stderr'),
+		warn_only=True
+	):
+		run_opts = ""
+		if ignore_ssl:
+			run_opts = "--unsafe "
+		result = local('fifo ' + run_opts + ' packages create --memory ' + memory  + ' --quota ' + quota  + ' --cpu_cap ' + cpu + ' ' + name, capture=True)
+		match = re.findall(r'([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})', result)
+		if len(match) < 1:
+		 	return False
+		else:
+			return match[0]
+
+
+def fifo_create_stack(name):
+	return execute(_fifo_create_grouping, name, True)
+
+def fifo_create_cluster(name, stack, quota, cpu):
+	return execute(_fifo_create_grouping, name, stack, True)
+
+def _fifo_create_grouping(name, parent = None, ignore_ssl = False):
+	with settings(
+		hide('warnings', 'running', 'stdout', 'stderr'),
+		warn_only=True
+	):
+		run_opts = ""
+		if ignore_ssl:
+			run_opts = "--unsafe "
+		grouping_type = "stack"
+		if parent:
+			grouping = "cluster"
+		result1 = local('fifo ' + run_opts + ' groupings create --type ' + grouping_type  + ' ' + name, capture=True)
+		match1 = re.findall(r'([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})', result1)
+		if match1 and grouping_type == "cluster":
+			result2 = local('fifo ' + run_opts + ' groupings add ' + parent + ' cluster ' + match1, capture=True)
+			match2 = re.findall(r'([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})', result2)
+			if match2:
+				return True
+			else:
+				return None
+		elif match1:
+		 	return True
+		else:
+			return None
+
+#check ring status: sniffle-admin ringready
 
 
 #==============================================================================
@@ -655,22 +682,40 @@ def recomend_vm_placements(hypervisors = [], leoNodeCount = 1):
 	vms = copy.deepcopy(stick_const.initial_vms)
 	placements = []
 	i = 1
-	k = 0
+	k = 1
+	j = 0
 
-	while i < int(leoNodeCount):
+	fifozonescount = stick_const.fifoZoneCount(len(hypervisors))
+
+	while i < fifozonescount:
 		i = i + 1
-		vms.append( str(i) + ".storage.leofs")
+		vms.append( str(i) + ".fifo")
+
+	while k < int(leoNodeCount):
+		k = k + 1
+		vms.append( str(k) + ".storage.leofs")
 
 	for vm in vms:
 		placement = {}
-		placement[vm] = hypervisors[k]
+		placement[vm] = hypervisors[j]
 		placements.append(placement.copy())
-		k += 1
-		if k >= len(hypervisors):
-			k = 0
+		j += 1
+		if j >= len(hypervisors):
+			j = 0
 
 	return placements
 
+
+def copy_fetch():
+	return execute(_copy_fetch)
+
+def _copy_fetch():
+	with settings(
+		hide('warnings', 'running', 'stdout', 'stderr'),
+		warn_only=True
+	):
+		result = local('cd /opt/local/; tar -zcvf /opt/local/leash/static/fetch.tar.gz fetch', capture=True)
+		return True
 
 
 #==============================================================================
